@@ -1,0 +1,28 @@
+{
+  "exported_at": "2026-09-20T13:55:34.454491+00:00",
+  "github_login": "sun123D",
+  "team_id": "contest2026_332_sanzhixiaocaibi",
+  "sessions": [
+    {
+      "session_id": "b2d999cc-9b0e-4e1a-81dc-a9c275db12dc",
+      "title": "NuttX ESP serial UART fix",
+      "date": "2026-08-31",
+      "tool": "claude-code",
+      "file": "2026-08-31/claude-code__b2d999cc-9b0e-4e1a-81dc-a9c275db12dc.jsonl"
+    },
+    {
+      "session_id": "d302818a-0d66-49be-96dd-07471980e853",
+      "title": "ESP32-P4 hybrid sensor mode",
+      "date": "2026-09-01",
+      "tool": "claude-code",
+      "file": "2026-09-01/claude-code__d302818a-0d66-49be-96dd-07471980e853.jsonl"
+    },
+    {
+      "session_id": "b3dda55c-efc5-441a-8f34-4c993a4eefa8",
+      "title": "P4 continuation",
+      "date": "2026-09-02",
+      "tool": "claude-code",
+      "file": "2026-09-02/claude-code__b3dda55c-efc5-441a-8f34-4c993a4eefa8.jsonl"
+    }
+  ]
+}
