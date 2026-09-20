@@ -1,0 +1,17 @@
+电脉卫士 — 已验证固件备份
+备份时间：2026-09-19
+验证内容（实测通过）：
+  - SC2336 摄像头出图，1280x720 UYVY
+  - 火焰检测：面积1.58% CV1.26 得分1.00 -> Lv3
+  - 继电器切断：CUTOFF! type=FIRE sev=3
+  - 静置35秒零误报
+  - 无 task_wdt、无 backtrace、无自动复位
+  - 迟滞生效，单次触发不跳变
+
+烧录（完整）：
+  python -m esptool --chip esp32p4 -p COM3 -b 460800 write_flash ^
+    0x2000 bootloader.bin 0x10000 partition-table.bin ^
+    0x20000 electric_guard_p4.bin 0x920000 storage.bin
+
+仅烧应用（保留 SPIFFS）：
+  python -m esptool --chip esp32p4 -p COM3 -b 460800 write_flash 0x20000 electric_guard_p4.bin

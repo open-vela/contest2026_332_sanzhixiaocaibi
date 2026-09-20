@@ -1,0 +1,185 @@
+# openvela / NuttX  ESP32-P4  本轮改动（成员C，2026-09-20）
+#
+# 1) esp_start.c        : 移除 nx_start() 之前对 esp_bringup() 的调用
+#                         —— OS 未启动时 register_driver() 会死锁，开 DEV_GPIO 必踩
+# 2) esp32p4_bringup.c  : GPIO 上电自检（只读，不驱动断闸继电器）
+# 3) esp32p4_guardd.c   : 新增，电脉卫士执行守护进程（作为 init 入口）
+# 4) src/Make.defs      : 纳入 esp32p4_guardd.c
+# 5) esp_allocateheap.c : 早期堆边界打印（目前是正常启动的必要条件，根因未定位）
+# 6) .config            : ESPRESSIF_USBSERIAL / 控制台改 USB-JTAG / init 入口改 guardd_main
+
+===== arch/risc-v/src/common/espressif/esp_start.c =====
+--- arch/risc-v/src/common/espressif/esp_start.c.bak.prebringup	2026-09-20 04:27:12.613536738 -0700
++++ arch/risc-v/src/common/espressif/esp_start.c	2026-09-20 04:27:21.297533592 -0700
+@@ -520,10 +520,15 @@
+ 
+   /* Bring up NuttX */
+ 
+-  extern int esp_bringup(void);
+-  ets_printf("ES:14g calling-esp_bringup\n");
+-  int brv = esp_bringup();
+-  ets_printf("ES:14h esp_bringup-ret=%d\n", brv);
++  /* NOTE: esp_bringup() must NOT be called here.  The OS is not running
++   * yet, so any VFS call inside it (register_driver(), nx_mount()) blocks
++   * forever on a mutex nothing can release.  This deadlocked as soon as
++   * CONFIG_DEV_GPIO was enabled.  esp32p4_boot.c already provides
++   * board_late_initialize(), which calls esp_bringup() at the right time,
++   * after nx_start() has the scheduler running.
++   */
++
++  ets_printf("ES:14g handing over to nx_start%c", 10);
+   nx_start();
+ 
+   for (; ; );
+
+===== arch/risc-v/src/common/espressif/esp_allocateheap.c =====
+--- arch/risc-v/src/common/espressif/esp_allocateheap.c.bak.heaptrace	2026-09-20 05:00:45.489154999 -0700
++++ arch/risc-v/src/common/espressif/esp_allocateheap.c	2026-09-20 05:00:45.601154983 -0700
+@@ -80,6 +80,14 @@
+   *heap_start = (void *)g_idle_topstack;
+   *heap_size  = (uintptr_t)ets_rom_layout_p->dram0_rtos_reserved_start -
+                            g_idle_topstack;
++
++  {
++    extern void ets_printf(const char *fmt, ...);
++    ets_printf("HEAP: start=0x%08x romres=0x%08x size=%d%c",
++               (unsigned)*heap_start,
++               (unsigned)ets_rom_layout_p->dram0_rtos_reserved_start,
++               (int)*heap_size, 10);
++  }
+ }
+ 
+ /****************************************************************************
+
+===== boards/risc-v/esp32p4/esp32p4-function-ev-board/src/esp32p4_bringup.c =====
+--- boards/risc-v/esp32p4/esp32p4-function-ev-board/src/esp32p4_bringup.c.bak.trace	2026-09-20 04:22:43.441586026 -0700
++++ boards/risc-v/esp32p4/esp32p4-function-ev-board/src/esp32p4_bringup.c	2026-09-20 04:37:44.321415806 -0700
+@@ -35,6 +35,7 @@
+ #include <unistd.h>
+ 
+ #include <nuttx/fs/fs.h>
++#include <nuttx/ioexpander/gpio.h>
+ 
+ #include "esp_board_ledc.h"
+ #include "esp_board_spiflash.h"
+@@ -423,6 +424,44 @@
+     {
+       ierr("Failed to initialize GPIO Driver: %d\n", ret);
+     }
++  else
++    {
++      /* 电脉卫士上电自检：通过 VFS 打开刚注册的 GPIO 字符设备并读回引脚
++       * 状态，证明驱动注册与 ioctl 通路都可用。
++       *
++       * 只读不写 —— /dev/gpio0 驱动的是三相断闸固态继电器（GPIO21），
++       * 上电自检期间绝不能主动拉高。
++       */
++
++      static const char * const devs[] =
++        {
++          "/dev/gpio0",   /* GPIO21 - 三相断闸 SSR */
++          "/dev/gpio1",   /* GPIO22 - 蜂鸣器       */
++          "/dev/gpio2"    /* RTC IO0               */
++        };
++
++      struct file filep;
++      int idx;
++
++      for (idx = 0; idx < 3; idx++)
++        {
++          bool val = false;
++          int r;
++
++          r = file_open(&filep, devs[idx], O_RDWR);
++          if (r < 0)
++            {
++              syslog(LOG_ERR, "GPIO selftest: open %s -> %d\n",
++                     devs[idx], r);
++              continue;
++            }
++
++          r = file_ioctl(&filep, GPIOC_READ, (unsigned long)&val);
++          syslog(LOG_INFO, "GPIO selftest: %s OK  read=%d  ioctl=%d\n",
++                 devs[idx], (int)val, r);
++          file_close(&filep);
++        }
++    }
+ #endif
+ 
+ #if defined(CONFIG_INPUT_BUTTONS) && defined(CONFIG_INPUT_BUTTONS_LOWER)
+
+===== boards/risc-v/esp32p4/esp32p4-function-ev-board/src/Make.defs =====
+--- boards/risc-v/esp32p4/esp32p4-function-ev-board/src/Make.defs.bak.guardd	2026-09-20 04:58:58.561174824 -0700
++++ boards/risc-v/esp32p4/esp32p4-function-ev-board/src/Make.defs	2026-09-20 04:58:58.681174800 -0700
+@@ -35,6 +35,11 @@
+   CSRCS += esp32p4_gpio.c
+ endif
+ 
++# 电脉卫士执行守护进程（作为 init 入口，见 esp32p4_guardd.c 顶部说明）
++ifeq ($(CONFIG_DEV_GPIO),y)
++  CSRCS += esp32p4_guardd.c
++endif
++
+ ifeq ($(CONFIG_ARCH_BUTTONS),y)
+   CSRCS += esp32p4_buttons.c
+ endif
+
+===== boards/risc-v/esp32p4/esp32p4-function-ev-board/src/esp32p4_guardd.c （新增文件，全文见 nuttx-overlay/）=====
+新增 222 行
+
+===== .config =====
+--- .config.bak.uart0console	2026-09-20 03:57:30.235090436 -0700
++++ .config	2026-09-20 04:59:13.079413804 -0700
+@@ -171,11 +171,11 @@
+ CONFIG_ESPRESSIF_SIMPLE_BOOT=y
+ # CONFIG_ESPRESSIF_BOOTLOADER_MCUBOOT is not set
+ CONFIG_ESPRESSIF_RTC=y
+-CONFIG_ESPRESSIF_UART0=y
++# CONFIG_ESPRESSIF_UART0 is not set
+ # CONFIG_ESPRESSIF_UART1 is not set
+ # CONFIG_ESPRESSIF_TWAI is not set
+ # CONFIG_ESPRESSIF_TWAI0 is not set
+-# CONFIG_ESPRESSIF_USBSERIAL is not set
++CONFIG_ESPRESSIF_USBSERIAL=y
+ # CONFIG_ESPRESSIF_GPIO_IRQ is not set
+ # CONFIG_ESPRESSIF_RTCIO_IRQ is not set
+ # CONFIG_ESPRESSIF_LEDC is not set
+@@ -437,8 +437,8 @@
+ CONFIG_INIT_ARGS=""
+ CONFIG_INIT_STACKSIZE=2048
+ CONFIG_INIT_PRIORITY=100
+-CONFIG_INIT_ENTRYPOINT="nsh_main"
+-CONFIG_INIT_ENTRYNAME="nsh_main"
++CONFIG_INIT_ENTRYPOINT="guardd_main"
++CONFIG_INIT_ENTRYNAME="guardd"
+ CONFIG_RR_INTERVAL=200
+ # CONFIG_SCHED_NOPREEMPT_KERNEL is not set
+ # CONFIG_SCHED_SPORADIC is not set
+@@ -746,10 +746,10 @@
+ CONFIG_MCU_SERIAL=y
+ CONFIG_STANDARD_SERIAL=y
+ CONFIG_SERIAL_NPOLLWAITERS=4
+-# CONFIG_SERIAL_TERMIOS is not set
++CONFIG_SERIAL_TERMIOS=y
+ # CONFIG_TTY_SIGINT is not set
+ # CONFIG_TTY_SIGTSTP is not set
+-# CONFIG_OTHER_SERIAL_CONSOLE is not set
++CONFIG_OTHER_SERIAL_CONSOLE=y
+ # CONFIG_NO_SERIAL_CONSOLE is not set
+ # CONFIG_RAM_UART is not set
+ # CONFIG_PSEUDOTERM is not set
+@@ -1914,9 +1914,13 @@
+ CONFIG_UART0_2STOP=0
+ CONFIG_UART0_RXBUFSIZE=256
+ CONFIG_UART0_TXBUFSIZE=256
+-CONFIG_UART0_SERIAL_CONSOLE=y
++# CONFIG_UART0_SERIAL_CONSOLE is not set
+ CONFIG_ARCH_RV_HAVE_CLIC=y
+ CONFIG_SYSTEM_NSH_DEVMEM=y
+ # CONFIG_EXAMPLES_GPIO is not set
+ CONFIG_DEV_GPIO_NPOLLWAITERS=2
+ CONFIG_DEV_GPIO_NSIGNALS=1
++# CONFIG_EXAMPLES_GUARDD is not set
++CONFIG_EXAMPLES_GUARDD_PROGNAME="guardd"
++CONFIG_EXAMPLES_GUARDD_PRIORITY=100
++CONFIG_EXAMPLES_GUARDD_STACKSIZE=4096

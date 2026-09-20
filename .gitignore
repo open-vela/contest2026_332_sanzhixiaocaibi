@@ -1,0 +1,6 @@
+
+# 网关的本地配置含 API key，不入库
+tools/guard_bridge.ini
+tools/guard_bridge.log
+
+__pycache__/
