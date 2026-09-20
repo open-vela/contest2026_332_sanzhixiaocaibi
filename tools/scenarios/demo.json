@@ -1,0 +1,37 @@
+[
+  {
+    "type": "OVERVOLT",
+    "severity": 1,
+    "vision_fire": 0.02,
+    "vision_smoke": 0.00,
+    "ctx": "B相电压瞬时 243V，持续 120ms 后回落；柜温 31℃；电流 8.4A 正常；摄像头无异常。"
+  },
+  {
+    "type": "TEMP",
+    "severity": 1,
+    "vision_fire": 0.08,
+    "vision_smoke": 0.11,
+    "ctx": "A相进线端子红外测温 118℃，相邻 B/C 相仅 41℃、43℃，相间温差 75K 且近 10 分钟持续扩大。回路电流 9.2A 远低于额定 13A，电压正常，无电弧谐波特征，摄像头未见明火或烟雾。"
+  },
+  {
+    "type": "OVERLOAD",
+    "severity": 2,
+    "vision_fire": 0.05,
+    "vision_smoke": 0.31,
+    "ctx": "A相电流 16.8A（额定 13A）持续 45s；柜温 58℃ 并上升；画面有轻微灰白区域。"
+  },
+  {
+    "type": "ARC",
+    "severity": 2,
+    "vision_fire": 0.71,
+    "vision_smoke": 0.44,
+    "ctx": "检测到串联电弧特征，2.1kHz 谐波能量超阈；柜温 67℃；摄像头 YCbCr 火焰判据连续 9 帧命中，面积持续增长。"
+  },
+  {
+    "type": "TEMP",
+    "severity": 1,
+    "vision_fire": 0.03,
+    "vision_smoke": 0.02,
+    "ctx": "断闸后柜温回落至 44℃，端子温度降至 51℃，电弧特征消失。"
+  }
+]

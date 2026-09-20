@@ -12,5 +12,12 @@
     <linkfile src="app/hello_app" dest="packages/demos/contest2026_332_hello_app"/>
     <linkfile src="quickapp/hello_quickapp" dest="packages/apps/contest2026_332_hello_quickapp"/>
     <linkfile src="board/contest_board" dest="vendor/openvela/boards/contest2026_332_board"/>
+    <!-- ESP32-P4-Function-EV-Board 板级适配（大赛「待适配开发板」）。
+         可直接浏览的板级源码，对应 nuttx/boards/risc-v/esp32p4/esp32p4-function-ev-board/。
+         按大赛规则，nuttx 公共仓的改动另以 PR 提交至 dev-ai-contest-2026 分支，
+         此处为存档与可复现说明。 -->
+    <linkfile src="board/esp32p4_function_ev" dest="vendor/openvela/boards/contest2026_332_esp32p4_function_ev"/>
+    <!-- 电脉卫士视觉火情感知组件（YCbCr + AVT 时域分析，纯 CPU 实现）。 -->
+    <linkfile src="app/electric_guard_vision" dest="packages/demos/contest2026_332_electric_guard_vision"/>
   </project>
 </manifest>

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "team_id": "contest2026_332_sanzhixiaocaibi",
+  "github_login": "Luohongbing83",
+  "generator": "claude-code-collector@1.3.0",
+  "updated_at": "2026-09-19T16:34:59.593Z",
+  "sessions": [
+    {
+      "session_id": "9c364469-5152-46de-b448-ab9f33fc9ca4",
+      "tool": "claude-code",
+      "started_at": "2026-09-01T08:24:43.986Z",
+      "last_event_at": "2026-09-19T16:34:54.665Z",
+      "event_count": 858,
+      "raw_event_count": 2202,
+      "file_path": "logs/Luohongbing83/2026-09-19/claude-code__9c364469-5152-46de-b448-ab9f33fc9ca4.jsonl",
+      "collection_mode": "cli",
+      "health": "ok",
+      "model": "claude-opus-5"
+    }
+  ]
+}

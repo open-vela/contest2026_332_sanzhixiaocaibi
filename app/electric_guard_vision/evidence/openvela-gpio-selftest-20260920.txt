@@ -1,0 +1,92 @@
+﻿RP:0 invalid-regions-start
+GPIO selftest: /dev/gpio0 OK  read=0  ioctl=0
+GPIO selftest: /dev/gpio1 OK  read=0  ioctl=0
+GPIO selftest: /dev/gpio2 OK  read=0  ioctl=0
+sp_bringup-done
+
+NuttShell (NSH)
+nsh> [KESP-ROM:esp32p4-eco7-20260109
+Build:Jan  9 2026
+rst:0x17 (CHIP_USB_UART_RESET),boot:0xc (SPI_FAST_FLASH_BOOT)
+SPI mode:DIO, clock div:1
+load:0x30100000,len:0x44
+load:0x4ff40000,len:0x267cc
+load:0x4ff66800,len:0xc064
+SHA-256 comparison failed:
+Calculated: 5a1dd69adb5ed43ee00d38e4fabce91fda20f08f29045f6403703fb928e6e574
+Expected: 0000000060b70000000000000000000000000000000000000000000000000000
+Attempting to boot anyway...
+entry 0x4ff6679e
+BI:0 enter
+BI:HW-start
+BI:HW-start
+BI:HW-done
+BI:HW-done
+BI:ANA-start
+BI:ANA-start
+BI:ANA-done
+BI:ANA-done
+BI:WDT-start
+BI:WDT-start
+BI:WDT-done
+BI:WDT-done
+BI:1 before-clock
+BI:2 after-clock
+BI:3 before-console
+BI:4 after-console
+*** Booting NuttX ***
+BI:5 after-banner
+BI:13 wdt-reset-check
+BI:14 wdt-reset-done
+BI:15 wdt-config
+BI:16 wdt-config-done
+BI:17 rng
+BI:18 rng-done
+BI:12 init-done
+total segments stored 0
+RP:0 invalid-regions-start
+PMA-start
+PMA:0
+PMA:1
+PMA:2
+PMA:3
+PMA:4
+PMA:5
+PMA:6
+PMA:7
+PMA:8
+PMA:9
+RP:1 invalid-regions-done
+CLK:A xtal-freq
+CLK:B xtal-ok
+CLK:C 8m-enable
+CLK:D 8m-done
+CLK:E slow-clk-start
+SLOW:0 enter
+SLOW:1 src=0
+SLOW:2 set-src
+SLOW:3 set-src-done
+CLK:F slow-clk-done
+CLK:0 freq-get
+CLK:0 freq-get
+CLK:1 freq-got old=100
+CLK:1 freq-got old=100
+ES:7 lowsetup
+LP:99 direct-call
+LP:0 enable-sysclk-done
+CP:0 rom-gpio-start
+CP:0.5 rx-done
+CP:1 rom-gpio-done
+ES:8 lowsetup-done
+ES:14g handing over to nx_start
+BRD:0 board_late_init
+BRD:10 esp_bringup-enter
+BRD:11 procfs-SKIPPED
+BRD:12 procfs-done ret=0
+GPIO selftest: /dev/gpio0 OK  read=0  ioctl=0
+GPIO selftest: /dev/gpio1 OK  read=0  ioctl=0
+GPIO selftest: /dev/gpio2 OK  read=0  ioctl=0
+BRD:1 esp_bringup-done
+
+NuttShell (NSH)
+nsh> [K

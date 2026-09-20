@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>电脉卫士 监控台</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121820; --panel2:#171f2a; --line:#243040;
+    --txt:#e6edf3; --dim:#8b98a9; --faint:#5a6675;
+    --ok:#2ea043; --warn:#d29922; --crit:#f85149; --info:#388bfd;
+    --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{height:100%}
+  body{
+    margin:0; min-height:100%;
+    background:var(--bg); color:var(--txt);
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    padding:18px; display:flex; flex-direction:column; gap:14px;
+    transition:background .25s;
+  }
+  body.alert{ background:#170a0c; }
+  body.alert::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:99;
+    border:3px solid var(--crit); animation:pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:.25}50%{opacity:.9}}
+
+  header{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  h1{font-size:22px;margin:0;letter-spacing:.5px}
+  h1 small{font-size:13px;color:var(--faint);font-weight:400;margin-left:8px}
+  .spacer{flex:1}
+  .meta{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+       background:var(--faint);margin-right:6px;vertical-align:1px}
+  .dot.live{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+
+  /* minmax(0,1fr) 而不是 1fr：默认的 auto 最小尺寸会被长文本的 min-content
+     顶宽，把右栏挤出视口。 */
+  .grid{display:grid;grid-template-columns:270px minmax(0,1fr) 340px;
+        gap:14px;flex:1;min-height:0}
+  /* 窄屏（或预览窗）下改成纵向排布并允许滚动，别把三张卡挤到重叠。
+     录像按 1600x900 以上全屏，走的是上面的三栏。 */
+  @media (max-width:1180px){
+    .grid{grid-template-columns:1fr;flex:none}
+    .card{min-height:auto}
+    .log{max-height:200px;overflow-y:auto}
+  }
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+        padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-height:0}
+  .card h2{font-size:11px;margin:0;color:var(--faint);font-weight:600;
+           letter-spacing:1.6px;text-transform:uppercase}
+
+  /* 执行器状态 */
+  .tile{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+        padding:14px;display:flex;align-items:center;gap:12px;transition:all .2s}
+  .tile .lamp{width:18px;height:18px;border-radius:50%;background:#2a3542;
+              border:1px solid #37455a;flex:none;transition:all .2s}
+  .tile .nm{font-size:14px;font-weight:600}
+  .tile .sub{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .tile.on{border-color:var(--crit);background:#2a1114}
+  .tile.on .lamp{background:var(--crit);box-shadow:0 0 14px var(--crit);border-color:var(--crit)}
+  .tile.on .st{color:var(--crit)}
+  .tile.buzz.on{border-color:var(--warn);background:#2a2211}
+  .tile.buzz.on .lamp{background:var(--warn);box-shadow:0 0 14px var(--warn);border-color:var(--warn)}
+  .tile.buzz.on .st{color:var(--warn)}
+  .tile .st{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--faint)}
+
+  /* 当前事件 */
+  .evhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge{font-family:var(--mono);font-size:15px;font-weight:700;padding:4px 12px;
+         border-radius:6px;background:#1c2634;border:1px solid var(--line)}
+  .sev{font-family:var(--mono);font-size:12px;padding:3px 9px;border-radius:5px;
+       border:1px solid var(--line);color:var(--dim)}
+  .sev.s2{color:var(--warn);border-color:var(--warn)}
+  .sev.s3{color:var(--crit);border-color:var(--crit)}
+  .ctx{font-size:13px;line-height:1.75;color:var(--dim);
+       background:var(--panel2);border-radius:8px;padding:11px 13px;
+       border-left:3px solid var(--line)}
+
+  /* 证据条 */
+  .bars{display:flex;flex-direction:column;gap:20px;margin-top:6px}
+  .bar .lab{display:flex;justify-content:space-between;font-size:13px;
+            margin-bottom:8px;color:var(--dim)}
+  .bar .lab b{font-family:var(--mono);color:var(--txt);font-weight:600;font-size:15px}
+  .track{height:14px;background:#1b2430;border-radius:7px;overflow:hidden;position:relative}
+  .fill{height:100%;width:0;border-radius:7px;transition:width .45s cubic-bezier(.2,.7,.3,1)}
+  .fill.fire{background:linear-gradient(90deg,#8a3b12,#f85149)}
+  .fill.smoke{background:linear-gradient(90deg,#3d4652,#8b98a9)}
+  .fill.elec{background:linear-gradient(90deg,#1f4d7a,#388bfd)}
+  .thr{position:absolute;top:-3px;bottom:-3px;width:2px;background:#e6edf3;opacity:.35}
+
+  /* 中栏判决横幅 —— 视频里的主画面 */
+  .verdict{margin-top:auto;border-radius:10px;padding:22px 24px;
+           border:1px solid var(--line);background:var(--panel2);
+           display:flex;align-items:center;gap:24px;transition:all .3s}
+  .verdict .big{font-family:var(--mono);font-size:46px;font-weight:800;
+                letter-spacing:2px;line-height:1;color:var(--faint)}
+  .verdict .cn{font-size:19px;font-weight:700;margin-bottom:6px}
+  .verdict>div:last-child{min-width:0}
+  .verdict .by{font-size:12px;color:var(--dim);line-height:1.6;
+               overflow-wrap:anywhere}
+  .verdict.NONE{border-color:#1d4a2a;background:#0d1c13}
+  .verdict.NONE .big{color:var(--ok)}
+  .verdict.ALARM{border-color:#54430f;background:#1e1a0b}
+  .verdict.ALARM .big{color:var(--warn)}
+  .verdict.CUT{border-color:#6b1f22;background:#240e10}
+  .verdict.CUT .big{color:var(--crit);text-shadow:0 0 22px rgba(248,81,73,.55)}
+
+  /* 决策 */
+  .row{display:flex;align-items:flex-start;gap:11px;padding:9px 0;
+       border-bottom:1px dashed var(--line)}
+  .row:last-child{border-bottom:none}
+  .row .who{width:62px;flex:none;font-size:12px;color:var(--faint);padding-top:3px}
+  .chip{font-family:var(--mono);font-size:12px;font-weight:700;padding:3px 10px;
+        border-radius:5px;flex:none;border:1px solid}
+  .chip.NONE{color:var(--ok);border-color:#1d4a2a;background:#0f2416}
+  .chip.ALARM{color:var(--warn);border-color:#54430f;background:#241d08}
+  .chip.CUT{color:var(--crit);border-color:#6b1f22;background:#2a0f11}
+  .chip.NA{color:var(--faint);border-color:var(--line);background:transparent}
+  .why{font-size:12px;color:var(--dim);line-height:1.6;
+       min-width:0;overflow-wrap:anywhere}
+  /* 大模型把结论顶上去的时候，要一眼看得出来是它干的 */
+  .row.esc{background:#1a1408;border-radius:7px;padding:9px 10px;
+           box-shadow:inset 3px 0 0 var(--warn)}
+  .row.esc .who{color:var(--warn);font-weight:700}
+  .tag{display:none;font-size:10px;font-weight:700;letter-spacing:.8px;
+       padding:2px 7px;border-radius:4px;background:var(--warn);color:#1a1408;
+       align-self:center}
+  .tag.on{display:inline-block;animation:tagin .4s ease-out}
+  @keyframes tagin{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
+  .final{background:var(--panel2);border-radius:8px;padding:11px 13px;margin-top:4px}
+  .final .row{border:none;padding:0}
+  .final .who{color:var(--txt);font-weight:600}
+
+  /* 流水 */
+  .log{flex:1;overflow-y:auto;font-family:var(--mono);font-size:12px;
+       display:flex;flex-direction:column;gap:6px;min-height:0}
+  .log .li{display:flex;gap:9px;align-items:center;padding:7px 9px;
+           background:var(--panel2);border-radius:6px;border-left:3px solid var(--line)}
+  .log .li.CUT{border-left-color:var(--crit)}
+  .log .li.ALARM{border-left-color:var(--warn)}
+  .log .li.NONE{border-left-color:var(--ok)}
+  .log .t{color:var(--faint);flex:none}
+  .log .ty{flex:1;color:var(--txt)}
+  .log .aiflag{font-size:10px;font-weight:700;color:#1a1408;background:var(--warn);
+               padding:1px 5px;border-radius:3px;flex:none}
+  .log .ac{font-weight:700}
+  .log .ac.CUT{color:var(--crit)} .log .ac.ALARM{color:var(--warn)} .log .ac.NONE{color:var(--ok)}
+
+  footer{font-size:11px;color:var(--faint);display:flex;gap:18px;flex-wrap:wrap}
+  footer b{color:var(--dim);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>电脉卫士 <small>Electric Guard P4 · 配电柜电气火灾预警</small></h1>
+  <div class="spacer"></div>
+  <div class="meta"><span class="dot" id="dot"></span><span id="conn">等待板子</span></div>
+  <div class="meta" id="clock">--:--:--</div>
+</header>
+
+<div class="grid">
+
+  <!-- 左：执行器 -->
+  <div class="card">
+    <h2>执行器 · openvela</h2>
+    <div class="tile" id="tCut">
+      <div class="lamp"></div>
+      <div>
+        <div class="nm">三相断闸</div>
+        <div class="sub">/dev/gpio0 · GPIO21</div>
+      </div>
+      <div class="st">闭合</div>
+    </div>
+    <div class="tile buzz" id="tBuz">
+      <div class="lamp"></div>
+      <div>
+        <div class="nm">声光告警</div>
+        <div class="sub">/dev/gpio1 · GPIO22</div>
+      </div>
+      <div class="st">静默</div>
+    </div>
+    <h2 style="margin-top:6px">板端回报</h2>
+    <div class="ctx" id="reply" style="font-family:var(--mono);font-size:11px">—</div>
+  </div>
+
+  <!-- 中：事件与证据 -->
+  <div class="card">
+    <h2>当前告警事件</h2>
+    <div class="evhead">
+      <span class="badge" id="evType">待机</span>
+      <span class="sev" id="evSev">—</span>
+    </div>
+    <div class="ctx" id="evCtx">等待事件注入…</div>
+
+    <h2 style="margin-top:6px">双路证据</h2>
+    <div class="bars">
+      <div class="bar">
+        <div class="lab"><span>电气故障等级</span><b id="vElec">0 / 3</b></div>
+        <div class="track"><div class="fill elec" id="bElec"></div></div>
+      </div>
+      <div class="bar">
+        <div class="lab"><span>视觉 · 火情置信度</span><b id="vFire">0.00</b></div>
+        <div class="track"><div class="fill fire" id="bFire"></div><div class="thr" style="left:60%"></div></div>
+      </div>
+      <div class="bar">
+        <div class="lab"><span>视觉 · 烟雾置信度</span><b id="vSmoke">0.00</b></div>
+        <div class="track"><div class="fill smoke" id="bSmoke"></div><div class="thr" style="left:40%"></div></div>
+      </div>
+    </div>
+
+    <div class="verdict" id="verdict">
+      <div class="big" id="vBig">—</div>
+      <div>
+        <div class="cn" id="vCn">待机</div>
+        <div class="by" id="vBy">等待事件注入</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：决策与流水 -->
+  <div class="card">
+    <h2>研判决策</h2>
+    <div class="row">
+      <div class="who">本地规则</div>
+      <div class="chip NA" id="cLocal">—</div>
+      <div class="why" id="wLocal"></div>
+    </div>
+    <div class="row" id="rLlm">
+      <div class="who">大模型</div>
+      <div class="chip NA" id="cLlm">—</div>
+      <div class="why" id="wLlm"></div>
+      <span class="tag" id="tagEsc">升级</span>
+    </div>
+    <div class="final">
+      <div class="row">
+        <div class="who">最终</div>
+        <div class="chip NA" id="cFinal">—</div>
+        <div class="why" id="wFinal"></div>
+      </div>
+    </div>
+    <h2 style="margin-top:6px">事件流水</h2>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<footer>
+  <span><b>架构</b> 判断端 PC · 执行端 openvela(ESP32-P4)</span>
+  <span><b>安全</b> 本地规则保留否决权，大模型只能升级不能降级</span>
+  <span><b>模型</b> <span id="model">未启用</span></span>
+</footer>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var lastTs = null;
+
+  function chip(el, action){
+    el.className = 'chip ' + (action || 'NA');
+    el.textContent = action || '—';
+  }
+
+  function pct(v){ return Math.max(0, Math.min(1, v)) * 100 + '%'; }
+
+  function render(s){
+    $('dot').className = 'dot' + (s.connected ? ' live' : '');
+    $('conn').textContent = s.connected
+      ? ('已连接 ' + (s.port || ''))
+      : (s.dry_run ? '未接板子（dry-run）' : '等待板子');
+    $('model').textContent = s.llm_enabled ? (s.model || '已启用') : '未启用（仅本地规则）';
+
+    var cut = !!s.cut, buz = !!s.buzzer;
+    $('tCut').className = 'tile' + (cut ? ' on' : '');
+    $('tCut').querySelector('.st').textContent = cut ? '已断开' : '闭合';
+    $('tBuz').className = 'tile buzz' + (buz ? ' on' : '');
+    $('tBuz').querySelector('.st').textContent = buz ? '鸣响' : '静默';
+    document.body.className = cut ? 'alert' : '';
+
+    $('reply').textContent = s.board_reply || '—';
+
+    var c = s.current;
+    if (c && c.event){
+      var ev = c.event;
+      $('evType').textContent = ev.type || '—';
+      var sev = +ev.severity || 0;
+      $('evSev').textContent = 'Lv' + sev;
+      $('evSev').className = 'sev' + (sev >= 3 ? ' s3' : sev === 2 ? ' s2' : '');
+      $('evCtx').textContent = ev.ctx || '—';
+
+      $('vElec').textContent = sev + ' / 3';
+      $('bElec').style.width = pct(sev / 3);
+      var f = +ev.vision_fire || 0, sm = +ev.vision_smoke || 0;
+      $('vFire').textContent = f.toFixed(2);
+      $('bFire').style.width = pct(f);
+      $('vSmoke').textContent = sm.toFixed(2);
+      $('bSmoke').style.width = pct(sm);
+
+      chip($('cLocal'), c.local && c.local.action);
+      $('wLocal').textContent = (c.local && c.local.reason) || '';
+      if (c.llm){
+        chip($('cLlm'), c.llm.action);
+        $('wLlm').textContent = '(' + (+c.llm.confidence).toFixed(2) + ') ' + (c.llm.reason || '');
+      } else {
+        chip($('cLlm'), null);
+        $('wLlm').textContent = s.llm_enabled ? '调用失败，已退回本地规则' : '未启用';
+      }
+      chip($('cFinal'), c.final);
+      $('wFinal').textContent = c.decided_by || '';
+
+      var esc = !!c.escalated;
+      $('rLlm').className = 'row' + (esc ? ' esc' : '');
+      $('tagEsc').className = 'tag' + (esc ? ' on' : '');
+
+      var CN = {NONE:'无需动作', ALARM:'本地告警，不断闸', CUT:'立即切断三相电源'};
+      $('verdict').className = 'verdict ' + (c.final || '');
+      $('vBig').textContent = c.final || '—';
+      $('vCn').textContent = c.final ? CN[c.final] : '研判中…';
+      $('vBy').textContent = c.final
+        ? ((esc ? '⬆ ' : '') + '决策来源：' + (c.decided_by || '') +
+           '　·　执行：openvela ESP32-P4')
+        : '证据已到位，等待研判结论';
+    }
+
+    var log = $('log');
+    if (s.history && s.history.length !== log.childElementCount){
+      log.innerHTML = '';
+      s.history.slice().reverse().forEach(function(h){
+        var d = document.createElement('div');
+        d.className = 'li ' + h.action;
+        d.innerHTML = '<span class="t">' + h.ts + '</span>' +
+                      '<span class="ty">' + h.type + ' Lv' + h.severity + '</span>' +
+                      (h.esc ? '<span class="aiflag">AI⬆</span>' : '') +
+                      '<span class="ac ' + h.action + '">' + h.action + '</span>';
+        log.appendChild(d);
+      });
+    }
+  }
+
+  function tick(){
+    fetch('state', {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(render)
+      .catch(function(){ $('dot').className = 'dot'; $('conn').textContent = '网关未运行'; });
+  }
+
+  setInterval(tick, 300);
+  setInterval(function(){
+    $('clock').textContent = new Date().toTimeString().slice(0,8);
+  }, 1000);
+  tick();
+})();
+</script>
+</body>
+</html>
